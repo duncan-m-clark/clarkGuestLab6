@@ -66,6 +66,8 @@ def client(address): #handles client side receives and inputs
 
             players[player_id]["col"] = col
             players[player_id]["row"] = row
+            players[player_id]["in_use"] = True # in case the player joined before you did
+            print(f"Player {player_id+1}'s position updated")
 
         elif msg_code == '08': # 08 - someone's turn
             player_id = int.from_bytes(s.recv(1, socket.MSG_WAITALL)) # get id whose turn
@@ -100,6 +102,8 @@ def client(address): #handles client side receives and inputs
         elif msg_code == '0e': # Server terminated
             print("The server has closed. Closing connection.\n")
             break # get out of loop
+        else:
+            print("Unrecognized message: ", msg_code, "\n")
     
     
     s.close() # close connection
