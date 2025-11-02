@@ -1,5 +1,6 @@
 import socket
 import sys
+import time
 
 
 def testing(): # used for teting the server side of the protocol
@@ -13,12 +14,12 @@ def testing(): # used for teting the server side of the protocol
         cmd = input("enter hex")
         cmd = bytes.fromhex(cmd)
         print(cmd)
-        c.send(cmd) #must be in b'\x00' form
+        c.send(cmd) #must be in bb'00' form
     c.close()
     s.close()
 
 
-def client(address): #handles 
+def client(address): #handles client side receives and inputs
     # setup connection
     s = socket.socket()
     try:
@@ -27,38 +28,81 @@ def client(address): #handles
     except socket.error as e:
         print("Unable to connect to server", e)
     
-    while(True):
-        receive = s.recv(1, MSG_WAITALL) # just receive the first byte. this flag is used in the client given and will be useful later
+    while(True): #using break statements to get out
+        msg_code = s.recv(1, socket.MSG_WAITALL).hex() # just receive the first byte. this flag is used in the client given and will be useful later
+        print(msg_code)
+        
 
-            print(receive)
+        if msg_code == '00': #Welcome message
+            player_num = int.from_bytes(s.recv(1, socket.MSG_WAITALL))
+            max_players = int.from_bytes(s.recv(1, socket.MSG_WAITALL))
 
-        match receive:
+            players = [None] * max_players
+            print(f"Welcome Player {player_num+1} of {max_players}\n")
 
-            case '\0': #Welcome message
+            for i in range(max_players): # initialize the player array
+                players[i] = {"in_use": False, "col": 0, "row": 0} #in_use is if they joined
+        
+        elif msg_code == '01': # receive maze uncompressed
+            maze_size = int.from_bytes(s.recv(2, socket.MSG_WAITALL), 'little') # little is needed for multiple bytes
+            width = int.from_bytes(s.recv(1, socket.MSG_WAITALL))
+            height = int.from_bytes(s.recv(1, socket.MSG_WAITALL))
+            cells = int.from_bytes(s.recv(maze_size-2, socket.MSG_WAITALL), 'little')#-2 since we alrady got two bytes
+            print('Received uncompressed maze')
 
-            case '\x01': # receive maze uncompressed
+        elif msg_code == '02': # receive compressed maze. TODO if time
+            print("not supported\n")
 
-            case '\x02': # receive compressed maze. TODO if time
+        elif msg_code == '05': # Illegal move
+            print("Illegal Move\n")
 
-            case '\x05': # Illegal move
+        elif msg_code == '06': # not your turn
+            print("it is not your turn\n")
 
-            case '\x06': # not your turn
+        elif msg_code == '07': # 07 - get location
+            player_id = int.from_bytes(s.recv(1, socket.MSG_WAITALL)) # get player to change position
+            col = int.from_bytes(s.recv(1, socket.MSG_WAITALL))# get column first
+            row = int.from_bytes(s.recv(1, socket.MSG_WAITALL))# get row second
 
-            case '\a': # 07 - get location
+            players[player_id]["col"] = col
+            players[player_id]["row"] = row
 
-            case '\b': # 08 - your turn
+        elif msg_code == '08': # 08 - someone's turn
+            player_id = int.from_bytes(s.recv(1, socket.MSG_WAITALL)) # get id whose turn
+            if player_id == player_num: # its your turn
+                print("Its your turn\n")
             
-            case '\t': # 09 - too many players
+        elif msg_code == '09': # 09 - too many players
+            print("There are too many players. Goodbye.\n")
+            break # break loop to exit games
 
-            case '\n': # 0a - a player joins
+        elif msg_code == '0a': # 0a - a player joins
+            player_id = int.from_bytes(s.recv(1, socket.MSG_WAITALL)) # get id of who joined
+            players[player_id]["in_use"] = True #change status to in_use
+            print(f"Player {player_id+1} has joined\n")
 
-            case '\v': #0b - a player left
-
-            case '\f': #0c - a player wins
-
-            case '\r': #0d - starting new game
-
-            case '\x0e': # Server terminated
+        elif msg_code == '0b': #0b - a player left
+            player_id = int.from_bytes(s.recv(1, socket.MSG_WAITALL)) # get id of who left
+            players[player_id]["in_use"] = False #change status to in_use
+            print(f"Player {player_id+1} has left.\n")
+        
+        elif msg_code == '0c': #0c - a player wins
+            player_id = int.from_bytes(s.recv(1, socket.MSG_WAITALL)) # get id of who won
+            print(f"Player {player_id + 1} Won!\n")
+            if(player_id == player_num):
+                print("Great Job! you won!")
+            else:
+                print("Better luck next time :(")
+        
+        elif msg_code == '0d': #0d - starting new game
+            print("Starting a new game\n") 
+        
+        elif msg_code == '0e': # Server terminated
+            print("The server has closed. Closing connection.\n")
+            break # get out of loop
+    
+    
+    s.close() # close connection
 
 
 
