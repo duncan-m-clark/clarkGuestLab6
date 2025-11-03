@@ -64,7 +64,7 @@ def check_jumps(col, row, direction, maze): # helper function to choose_move. Re
                     return check_jumps(col+1, row, "right", maze) + 1 # recurse right
     return 0 #root case. either hit a boundary or there is no player
 
-def check_move(col, row, direction, maze, jump): # makes sure its a valid move. Returns True if move is valid. jump is bool for if the move is a jump
+def check_collision(col, row, direction, maze, jump): # makes sure its a valid move. Returns True if move is valid. jump is bool for if the move is a jump. Doesnt check walls
     if(col < maze.width and row < maze.height):
         for i in range(max_players):
             if players[i]["row"] == row and players[i]["col"] == col and players[i]["in_use"]: # any active player in that position
@@ -73,13 +73,12 @@ def check_move(col, row, direction, maze, jump): # makes sure its a valid move. 
                     return False
 
                 if direction == "down" and jump and row+1 < maze.height: # check for boundary if its a jump
-                    return check_move(col, row+1, "down", maze, jump)#recurse to see multiple jumps
+                    return check_collision(col, row+1, "down", maze, jump)#recurse to see multiple jumps
                 elif direction == "right" and jump and col+1 < maze.width: #check boundary if its a jump
-                    return check_move(col+1, row, "right", maze, jump) # recurse right
+                    return check_collision(col+1, row, "right", maze, jump) # recurse right
                 
                 
                 
-        
         return True # move ends on the map
 
     else: # move takes you off the map
@@ -103,29 +102,30 @@ def choose_move(maze):# The idea is to find the move down or right that jumps th
     right_jump = check_jumps(col+1, row, "right", maze) # checking right jump for jumps over players
     down_jump = check_jumps(col, row+1, "down", maze) # checking down jump for jumps over players
     
+    RJ = check_collision(col+1, row, "right", maze, True) # right jump legal
+    RM = check_collision(col+1, row, "right", maze, False) # right move legal
+    DJ = check_collision(col, row+1, "down", maze, True) # down jump legal
+    DM = check_collision(col, row+1, "down", maze, False) # down move legal
+
+    print(f' RJ: {RJ} RM {RM} DJ: {DJ} DM: {DM}')#troubleshooting
 
     #print("R D: ", right_jump,  " ", down_jump)
-    if(right_jump >= down_jump and check_move(col+1, row, "right", maze, True)): # jump right if its better than bottom jump. Default right jump on ==
-        if (right_jump == 0 and right_open == 0) or right_jump > 0: #no players to the right but there is a wall or there is a tie > 0
-            return 0x13 #return hex for jump right
-
-        else: 
-            return 0xf # move right since there is no wall. Already know it stays on the map due to check_move above
+    if(right_jump >= down_jump and RJ and right_jump != 0): # jump right if its better than bottom jump. Default right jump on ==
+        return 0x13 #return hex for jump right
     
-    elif(down_jump >= right_jump and check_move(col, row+1, "down", maze, True)): # jump down if it jump more than a right jump. = in case right jump is not valid on tie
-        if(down_jump == 0 and bottom_open == 0) or down_jump > 0:
-            return 0x16 #return hex for down jump.
+    elif(down_jump >= right_jump and DJ and down_jump != 0): # jump down if it jump more than a right jump. = in case right jump is not valid on tie
+        return 0x16 #return hex for down jump.
         
-        else:
-            return 0x12 # move down if there is no wall
-    
-    else: #No hopping found and down is not valid. We now just move down. NOTE This may lose your turn if there is a player in front of you but there is no valid move to bring you closer to the exit
-        if(bottom_open): #if there is no wall
+    else: #No hopping found and down is not valid. We must check walls
+        if bottom_open and DM: #if there is no wall and no player lower
             #print("MD")
             return 0x12 # move down
+        elif bottom_open == 0 and DJ: #wall but no player
+            return 0x16
+        elif right_open and RM:
+            return 0xf
         else:
-            #print("JD")
-            return 0x16 #jump wall
+            return 0x13 # this might return if there are no valid moves that bring you closer to the exit
 
 
 
@@ -173,7 +173,6 @@ def client(address): #handles client side receives and inputs
 
         elif msg_code == '05': # Illegal move
             print("Illegal Move")
-            time.sleep(10) # debugging
 
         elif msg_code == '06': # not your turn
             print("it is not your turn")
@@ -196,7 +195,6 @@ def client(address): #handles client side receives and inputs
 
             if player_id == player_num: # its your turn
                 print("Its your turn")
-                time.sleep(.2)
                 move = choose_move(maze)
                 print(hex(move))
                 if move == "exit": #L was given and we are leaving the game loop
