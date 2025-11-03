@@ -55,13 +55,14 @@ def check_cell(col, row, direction, maze): # helper function to choose_move. Ret
     global max_players
     global players
 
-    for i in range(max_players):
-        if players[i]["row"] == row and players[i]["col"] == col:
-            if direction == "down" and row < maze.height-1: # check for boundary
-                return check_cell(col, row+1, "down", maze) + 1 #recurse to see multiple jumps
-            elif direction == "right" and col+1 < maze.width: #check boundary
-                return check_cell(col+1, row, "right", maze) + 1 # recurse right
-        return 0 #root case. either hit a boundary or there is no player
+    if(col < maze.width and row < maze.height):
+        for i in range(max_players):
+            if players[i]["row"] == row and players[i]["col"] == col:
+                if direction == "down" and row+1 < maze.height: # check for boundary
+                    return check_cell(col, row+1, "down", maze) + 1 #recurse to see multiple jumps
+                elif direction == "right" and col+1 < maze.width: #check boundary
+                    return check_cell(col+1, row, "right", maze) + 1 # recurse right
+    return 0 #root case. either hit a boundary or there is no player
 
 def choose_move(maze):# The idea is to find the move down or right that jumps the most squares. If not, then just move 
     global players #getting global variables to find positions of players
@@ -71,13 +72,18 @@ def choose_move(maze):# The idea is to find the move down or right that jumps th
     col = players[player_num]["col"]
 
     right_jump = check_cell(col+1, row, "right", maze) # checking right jump for jumps over players
-    down_jump = check_cell(col, row-1, "down", maze) # checking right jump for jumps over players
+    down_jump = check_cell(col, row+1, "down", maze) # checking right jump for jumps over players
     
+
+    print("R D: ", right_jump,  " ", down_jump)
     if(right_jump > down_jump):
         return 0x13 #return hex for jump right
     
     elif(down_jump > right_jump):
         return 0x16 #return hex for down jump
+    
+    elif(right_jump != 0): #check to see if there was a tie
+        return 0x13 # jump right by default 
 
     else: #No hopping found
         current_cell = maze.cells[col + row * maze.width] #getting the value at the index of the player
@@ -171,6 +177,7 @@ def client(address): #handles client side receives and inputs
             if player_id == player_num: # its your turn
                 print("Its your turn")
                 move = choose_move(maze)
+                print(hex(move))
                 if move == "exit": #L was given and we are leaving the game loop
                     break
                 else:
