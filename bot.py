@@ -108,7 +108,7 @@ def choose_move(maze):# The idea is to find the move down or right that jumps th
     DJ = check_collision(col, row+1, "down", maze, True) # down jump legal
     DM = check_collision(col, row+1, "down", maze, False) # down move legal
 
-    print(f' RJ: {RJ} RM {RM} DJ: {DJ} DM: {DM}')#troubleshooting
+    #print(f' RJ: {RJ} RM {RM} DJ: {DJ} DM: {DM}')#troubleshooting
 
     #print("R D: ", right_jump,  " ", down_jump)
     if(right_jump >= down_jump and RJ and right_jump != 0): # jump right if its better than bottom jump. Default right jump on ==
@@ -197,7 +197,7 @@ def client(address): #handles client side receives and inputs
             if player_id == player_num: # its your turn
                 print("Its your turn")
                 move = choose_move(maze)
-                print(hex(move))
+                print("sending" ,hex(move))
                 if move == "exit": #L was given and we are leaving the game loop
                     break
                 else:
