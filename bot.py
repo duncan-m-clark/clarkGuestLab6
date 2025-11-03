@@ -145,7 +145,7 @@ def client(address): #handles client side receives and inputs
     while(True): #using break statements to get out
     
         msg_code = s.recv(1, socket.MSG_WAITALL).hex() # just receive the first byte. this flag is used in the client given and will be useful later
-        print(msg_code)
+        #print(msg_code)
         
 
         if msg_code == '00': #Welcome message
@@ -172,7 +172,7 @@ def client(address): #handles client side receives and inputs
             s.recv(102, soket.MSG_WAITALL) # get rid of the next 102 bytes which are the maze 
 
         elif msg_code == '05': # Illegal move
-            print("Illegal Move")
+            print("Illegal Move\n\n\n\n\n\n\n")
 
         elif msg_code == '06': # not your turn
             print("it is not your turn")
@@ -238,7 +238,7 @@ def client(address): #handles client side receives and inputs
 
             try:
                 print("send")
-                s.send(b'') #send empty bit to test connection, 
+                s.send(b'0') #send empty bit to test connection, 
             except (BrokenPipeError, ConnectionResetError, OSError) as e:
                 print("Connection to the server has been lost. Please try restarting.")
                 break
