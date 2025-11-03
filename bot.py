@@ -65,19 +65,20 @@ def check_jumps(col, row, direction, maze): # helper function to choose_move. Re
     return 0 #root case. either hit a boundary or there is no player
 
 def check_collision(col, row, direction, maze, jump): # makes sure its a valid move. Returns True if move is valid. jump is bool for if the move is a jump. Doesnt check walls
+    #print(f'C{col} R{row} W{maze.width} H{maze.height} D{direction}')
     if(col < maze.width and row < maze.height):
         for i in range(max_players):
             if players[i]["row"] == row and players[i]["col"] == col and players[i]["in_use"]: # any active player in that position
-
+                #print("Collision")
                 if(jump == False): #moving into another player cannot happen
                     return False
 
-                if direction == "down" and jump and row+1 < maze.height: # check for boundary if its a jump
+                if direction == "down" and jump: # check for boundary if its a jump
                     return check_collision(col, row+1, "down", maze, jump)#recurse to see multiple jumps
-                elif direction == "right" and jump and col+1 < maze.width: #check boundary if its a jump
-                    return check_collision(col+1, row, "right", maze, jump) # recurse right
-                
-                
+
+                elif direction == "right" and jump: #check boundary if its a jump
+                    #print("pls")
+                    return check_collision(col+1, row, "right", maze, jump) # recurse right    
                 
         return True # move ends on the map
 
