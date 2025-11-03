@@ -1,7 +1,13 @@
 import socket
 import sys
 import time
+from dataclasses import dataclass
 
+@dataclass
+class Maze: #used for the maze created
+    width: int
+    height: int
+    cells: bytes
 
 def testing(): # used for teting the server side of the protocol
     s = socket.socket()
@@ -18,6 +24,12 @@ def testing(): # used for teting the server side of the protocol
     c.close()
     s.close()
 
+def print_maze(maze):
+    #print(maze.cells)
+    for y in range(maze.height): # printing in grid layout for reference
+        for x in range(maze.width):
+            print(f'{maze.cells[x + (y*maze.width)]:04b}', end = ' ')
+        print('\n')
 
 def client(address): #handles client side receives and inputs
     # setup connection
@@ -47,11 +59,14 @@ def client(address): #handles client side receives and inputs
             maze_size = int.from_bytes(s.recv(2, socket.MSG_WAITALL), 'little') # little is needed for multiple bytes
             width = int.from_bytes(s.recv(1, socket.MSG_WAITALL))
             height = int.from_bytes(s.recv(1, socket.MSG_WAITALL))
-            cells = int.from_bytes(s.recv(maze_size-2, socket.MSG_WAITALL), 'little')#-2 since we alrady got two bytes
+            cells = s.recv(maze_size-2, socket.MSG_WAITALL)#-2 since we alrady got two bytes|
+
+            maze = Maze(width, height, cells) # setting maze object values
             print('Received uncompressed maze')
 
         elif msg_code == '02': # receive compressed maze. TODO if time
             print("not supported\n")
+            s.recv(102, soket.MSG_WAITALL) # get rid of the next 102 bytes which are the maze 
 
         elif msg_code == '05': # Illegal move
             print("Illegal Move\n")
@@ -70,9 +85,13 @@ def client(address): #handles client side receives and inputs
             print(f"Player {player_id+1}'s position updated")
 
         elif msg_code == '08': # 08 - someone's turn
+            
             player_id = int.from_bytes(s.recv(1, socket.MSG_WAITALL)) # get id whose turn
+
+            print_maze(maze)
             if player_id == player_num: # its your turn
                 print("Its your turn\n")
+            
             
         elif msg_code == '09': # 09 - too many players
             print("There are too many players. Goodbye.\n")
