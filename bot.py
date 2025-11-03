@@ -9,6 +9,12 @@ class Maze: #used for the maze created
     height: int
     cells: bytes
 
+
+players = [] # GLOBAL VARIABLES
+max_players = 0
+player_num = 0
+
+
 def testing(): # used for teting the server side of the protocol
     s = socket.socket()
     s.bind(("localhost", 8008))
@@ -24,14 +30,86 @@ def testing(): # used for teting the server side of the protocol
     c.close()
     s.close()
 
+
+
 def print_maze(maze):
     #print(maze.cells)
+    global max_players
+    global players
+
     for y in range(maze.height): # printing in grid layout for reference
         for x in range(maze.width):
-            print(f'{maze.cells[x + (y*maze.width)]:04b}', end = ' ')
+
+            print(f'{maze.cells[x + (y*maze.width)] &0xf :04b}', end = '')
+            for i in range(max_players):
+                #print(players[i], " ", y, x)
+                if players[i]["row"] == y and players[i]["col"] == x:
+                    print(f"P{i+1}", end="") # show locations
+
+            print(end = " ") #formatting for troubleshooting
+
         print('\n')
 
+
+def check_cell(col, row, direction, maze): # helper function to choose_move. Returns amount of jumps for certain move. Recurses to find total jumps
+    global max_players
+    global players
+
+    for i in range(max_players):
+        if players[i]["row"] == row and players[i]["col"] == col:
+            if direction == "down" and row < maze.height-1: # check for boundary
+                return check_cell(col, row+1, "down", maze) + 1 #recurse to see multiple jumps
+            elif direction == "right" and col+1 < maze.width: #check boundary
+                return check_cell(col+1, row, "right", maze) + 1 # recurse right
+        return 0 #root case. either hit a boundary or there is no player
+
+def choose_move(maze):# The idea is to find the move down or right that jumps the most squares. If not, then just move 
+    global players #getting global variables to find positions of players
+    global player_num
+
+    row = players[player_num]["row"]
+    col = players[player_num]["col"]
+
+    right_jump = check_cell(col+1, row, "right", maze) # checking right jump for jumps over players
+    down_jump = check_cell(col, row-1, "down", maze) # checking right jump for jumps over players
+    
+    if(right_jump > down_jump):
+        return 0x13 #return hex for jump right
+    
+    elif(down_jump > right_jump):
+        return 0x16 #return hex for down jump
+
+    else: #No hopping found
+        current_cell = maze.cells[col + row * maze.width] #getting the value at the index of the player
+        bottom_wall = current_cell & 0x08 # gets the value of the bit in the 4th position x000 = bottom wall
+        right_wall = current_cell &0x01 #gets value of rightmost bit 000x = right wall
+
+        #print(f"current cell: {current_cell :08b}")
+        #print("walls b r: ", bottom_wall, " ", right_wall)
+
+        if(row < maze.height-1): # we are defaulting going down since the exit is on the bottom. 
+
+            if(bottom_wall): # if there is no bottom wall
+                #print("MD")
+                return 0x12 # return move_down to server
+            else:
+                #print("JD")
+                return 0x16 # return jump to go over wall
+        else:
+            if(right_wall): #if there is no wall
+                #print("MR")
+                return 0xf # move right
+            else:
+                #print("JR")
+                return 0x13 #jump wall
+
+
+
+
 def client(address): #handles client side receives and inputs
+    global max_players
+    global player_num
+    global players
     # setup connection
     s = socket.socket()
     try:
@@ -65,14 +143,14 @@ def client(address): #handles client side receives and inputs
             print('Received uncompressed maze')
 
         elif msg_code == '02': # receive compressed maze. TODO if time
-            print("not supported\n")
+            print("not supported")
             s.recv(102, soket.MSG_WAITALL) # get rid of the next 102 bytes which are the maze 
 
         elif msg_code == '05': # Illegal move
-            print("Illegal Move\n")
+            print("Illegal Move")
 
         elif msg_code == '06': # not your turn
-            print("it is not your turn\n")
+            print("it is not your turn")
 
         elif msg_code == '07': # 07 - get location
             player_id = int.from_bytes(s.recv(1, socket.MSG_WAITALL)) # get player to change position
@@ -82,57 +160,59 @@ def client(address): #handles client side receives and inputs
             players[player_id]["col"] = col
             players[player_id]["row"] = row
             players[player_id]["in_use"] = True # in case the player joined before you did
-            print(f"Player {player_id+1}'s position updated")
+            print(f"Player {player_id+1}'s position updated to {col},{row}")
 
         elif msg_code == '08': # 08 - someone's turn
             
             player_id = int.from_bytes(s.recv(1, socket.MSG_WAITALL)) # get id whose turn
 
-            print_maze(maze)
+            #print_maze(maze) # for testing
+
             if player_id == player_num: # its your turn
-                print("Its your turn\n")
+                print("Its your turn")
+                move = choose_move(maze)
+                if move == "exit": #L was given and we are leaving the game loop
+                    break
+                else:
+                    s.send(move.to_bytes())# send the move to the server
+            else:
+                print(f"Its player {player_id+1}'s turn.")
             
             
         elif msg_code == '09': # 09 - too many players
-            print("There are too many players. Goodbye.\n")
+            print("There are too many players. Goodbye")
             break # break loop to exit games
 
         elif msg_code == '0a': # 0a - a player joins
             player_id = int.from_bytes(s.recv(1, socket.MSG_WAITALL)) # get id of who joined
             players[player_id]["in_use"] = True #change status to in_use
-            print(f"Player {player_id+1} has joined\n")
+            print(f"Player {player_id+1} has joined")
 
         elif msg_code == '0b': #0b - a player left
             player_id = int.from_bytes(s.recv(1, socket.MSG_WAITALL)) # get id of who left
             players[player_id]["in_use"] = False #change status to in_use
-            print(f"Player {player_id+1} has left.\n")
+            print(f"Player {player_id+1} has left.")
         
         elif msg_code == '0c': #0c - a player wins
             player_id = int.from_bytes(s.recv(1, socket.MSG_WAITALL)) # get id of who won
-            print(f"Player {player_id + 1} Won!\n")
+            print(f"Player {player_id + 1} Won!")
             if(player_id == player_num):
                 print("Great Job! you won!")
             else:
                 print("Better luck next time :(")
         
         elif msg_code == '0d': #0d - starting new game
-            print("Starting a new game\n") 
+            print("Starting a new game") 
         
         elif msg_code == '0e': # Server terminated
-            print("The server has closed. Closing connection.\n")
+            print("The server has closed.")
             break # get out of loop
         else:
-            print("Unrecognized message: ", msg_code, "\n")
+            print("Unrecognized message: ", msg_code)
     
-    
+    print("Closing connection")
     s.close() # close connection
 
-
-
-    # receive opcode
-    # switch statements
-    # take in the appropriate amount of bytes for the opcode
-    return
 
 
 if __name__ == "__main__":
